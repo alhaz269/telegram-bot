@@ -2,9 +2,9 @@ import os
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# Configuration
+# Configuration - Convert admin IDs to integers
 TOKEN = "7889573217:AAHjCIc2mWoEG4podoHuvoQ1qtXM1BJhWZ8"
-ADMINS = [7209247941]
+ADMINS = [7209247941]  # Keep as is but note this is a large number
 FILENAME = "usernames.txt"
 
 # Load usernames from file
@@ -72,8 +72,9 @@ async def add_username(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     username = context.args[0].lstrip("@")
     
-    if not username.isalnum():
-        await update.message.reply_text("❌ ইউজারনেম শুধুমাত্র অক্ষর ও সংখ্যা হতে হবে।")
+    # Allow usernames with letters, numbers, and underscores
+    if not all(c.isalnum() or c == '_' for c in username):
+        await update.message.reply_text("❌ ইউজারনেম শুধুমাত্র অক্ষর, সংখ্যা এবং আন্ডারস্কোর (_) হতে হবে।")
         return
 
     if username in USERNAMES:
@@ -119,10 +120,21 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not USERNAMES:
             await query.edit_message_text("ℹ️ কোনো ইউজারনেম নেই।")
             return
-
+            
+        # Show confirmation buttons
+        keyboard = [
+            [InlineKeyboardButton("✅ হ্যাঁ, সব মুছুন", callback_data="confirm_remove_all")],
+            [InlineKeyboardButton("❌ না, বাতিল করুন", callback_data="menu")]
+        ]
+        await query.edit_message_text(
+            "⚠️ আপনি কি নিশ্চিত যে আপনি সব ইউজারনেম মুছতে চান?",
+            reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+    
+    elif query.data == "confirm_remove_all":
         USERNAMES.clear()
         save_usernames(USERNAMES)
-        await query.edit_message_text("🗑️ সব ইউজারনেম মুছে ফেলা হয়েছে。")
+        await query.edit_message_text("🗑️ সব ইউজারনেম মুছে ফেলা হয়েছে।")
     
     elif query.data == "show_list":
         if not USERNAMES:
@@ -173,10 +185,14 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             ])
         )
     
-    elif query.data == "menu" or query.data == "back_to_menu":
+    elif query.data == "menu":
         await show_main_menu(update, context)
     
     elif query.data == "send_message":
+        if not USERNAMES:
+            await query.edit_message_text("ℹ️ কোনো ইউজারনেম নেই। যোগ করুন আগে।")
+            return
+            
         await query.edit_message_text(
             "মেসেজ পাঠানোর জন্য নিচের ইউজার লিস্ট থেকে একজনকে সিলেক্ট করুন:",
             reply_markup=InlineKeyboardMarkup([
